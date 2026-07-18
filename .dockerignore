@@ -10,7 +10,8 @@ venv/
 env/
 
 .env
-
+credentials.json
+token.json
 
 # Ignore git
 .git

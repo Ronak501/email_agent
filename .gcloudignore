@@ -14,4 +14,5 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Do NOT ignore credentials.json or token.json so they are uploaded to Cloud Build!
+credentials.json
+token.json

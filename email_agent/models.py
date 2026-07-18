@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from database import Base
+from email_agent.database import Base
 
 class Email(Base):
     __tablename__ = "emails"
@@ -14,7 +14,6 @@ class Email(Base):
     is_read = Column(Boolean, default=False)
     received_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relationship to drafts if any replies are made to this email
     drafts = relationship("Draft", back_populates="original_email")
 
 class Draft(Base):
@@ -29,3 +28,12 @@ class Draft(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     original_email = relationship("Email", back_populates="drafts")
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String, index=True)
+    role = Column(String)  # 'user' or 'model'
+    content = Column(String)
+    timestamp = Column(DateTime, default=datetime.utcnow)

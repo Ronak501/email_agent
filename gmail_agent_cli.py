@@ -1,6 +1,7 @@
 import os
-from gmail_service import get_gmail_service, list_unread_emails
-from gemini_service import summarize_email
+from email_agent.auth import get_gmail_service
+from email_agent.gmail_service import list_unread_emails
+from email_agent.gemini_service import summarize_email
 
 def main():
     print("=== Gmail & Gemini Agent CLI ===")

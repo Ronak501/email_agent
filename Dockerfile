@@ -18,6 +18,4 @@ COPY . .
 
 # Expose port 8080 (default for Cloud Run)
 EXPOSE 8080
-
-# Command to run the FastAPI application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "email_agent.app:app", "--host", "0.0.0.0", "--port", "8080"]

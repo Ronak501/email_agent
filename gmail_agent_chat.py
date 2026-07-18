@@ -1,5 +1,4 @@
-import os
-from conversational_agent import run_agent_query
+from email_agent.conversational_agent import run_agent_query
 
 def main():
     print("==================================================")

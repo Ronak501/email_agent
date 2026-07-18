@@ -361,16 +361,66 @@
         }
         ::-webkit-scrollbar-thumb:hover {
             background: rgba(255, 255, 255, 0.2);
+        .badge-container {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .badge {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .badge.priority-high {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+        .badge.priority-medium {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+        .badge.priority-low {
+            background: rgba(59, 130, 246, 0.15);
+            color: #3b82f6;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+        .badge.category {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+        .logout-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--text-secondary);
+            padding: 6px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s ease;
+        }
+        .logout-btn:hover {
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.05);
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>Gmail Assistant</h1>
-        <div class="status-badge">
-            <span class="status-dot"></span>
-            Cloud Run Connected
+    <header style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <h1>Gmail Assistant</h1>
+            <div class="status-badge">
+                <span class="status-dot"></span>
+                Cloud Run Connected
+            </div>
         </div>
+        <button class="logout-btn" onclick="window.location.href='/logout'">Sign Out</button>
     </header>
 
     <div class="main-container">
@@ -414,6 +464,9 @@
         const chatInput = document.getElementById('chatInput');
         const inboxFeed = document.getElementById('inboxFeed');
 
+        // Generate a random session ID on page load to keep conversation context
+        const sessionId = 'session_' + Math.random().toString(36).substring(2, 15);
+
         // Automatically fetch emails on page load
         window.onload = () => {
             fetchEmails();
@@ -437,7 +490,11 @@
                 </div>
             `;
             try {
-                const response = await fetch('/emails/unread');
+                const response = await fetch('/emails/unread', {
+                    headers: {
+                        'Authorization': window.API_BEARER_TOKEN || ''
+                    }
+                });
                 if (!response.ok) throw new Error('API failed to respond');
                 const data = await response.json();
                 
@@ -459,6 +516,10 @@
                         <div class="email-header">
                             <span class="email-sender">${escapeHtml(email.sender)}</span>
                             <span class="email-date">${escapeHtml(email.date)}</span>
+                        </div>
+                        <div class="badge-container">
+                            <span class="badge priority-${(email.priority || 'medium').toLowerCase()}">${escapeHtml(email.priority || 'Medium')}</span>
+                            <span class="badge category">${escapeHtml(email.category || 'Updates')}</span>
                         </div>
                         <div class="email-subject">${escapeHtml(email.subject)}</div>
                         <div class="email-snippet">${escapeHtml(email.snippet)}</div>
@@ -501,8 +562,11 @@
             try {
                 const response = await fetch('/agent/query', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: query })
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': window.API_BEARER_TOKEN || ''
+                    },
+                    body: JSON.stringify({ query: query, session_id: sessionId })
                 });
                 
                 if (!response.ok) throw new Error('Server responded with an error');

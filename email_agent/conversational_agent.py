@@ -1,24 +1,22 @@
 import os
 from google import genai
 from google.genai import types
-import gmail_service
-
-# Initialize Vertex AI GenAI Client
-PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "techsodh")
-REGION = os.getenv("GOOGLE_CLOUD_REGION", "us-central1")
+from email_agent import auth, gmail_service, draft_service, config
+from email_agent.database import SessionLocal
+from email_agent import models
 
 try:
     client = genai.Client(
         vertexai=True,
-        project=PROJECT_ID,
-        location=REGION
+        project=config.PROJECT_ID,
+        location=config.REGION
     )
     agent_initialized = True
 except Exception as e:
     agent_initialized = False
     init_error = str(e)
 
-def run_agent_query(user_query: str) -> str:
+def run_agent_query(user_query: str, session_id: str = "default") -> str:
     """
     Runs a user natural language query through Gemini's function calling loop,
     executing Gmail tools as requested by the model, and returns the final response.
@@ -26,13 +24,12 @@ def run_agent_query(user_query: str) -> str:
     if not agent_initialized:
         return f"Agent initialization failed: {init_error}"
         
-    # Get active Gmail API service session
     try:
-        service = gmail_service.get_gmail_service()
+        service = auth.get_gmail_service()
     except Exception as e:
         return f"Failed to authenticate with Gmail API: {str(e)}"
 
-    # 1. Define tools with clear docstrings and type hints for Gemini's schema inference
+    # 1. Define tools with clear docstrings and type hints for Gemini
     def list_unread_emails() -> list:
         """
         Retrieves a list of unread emails currently in the user's inbox.
@@ -53,8 +50,8 @@ def run_agent_query(user_query: str) -> str:
         Creates a draft reply to a specific email ID using the provided reply_body text.
         Returns details of the created draft.
         """
-        print(f"[Agent Tool Executing] create_draft_reply(email_id={email_id}, body_length={len(reply_body)})")
-        return gmail_service.create_draft_reply(service, email_id, reply_body)
+        print(f"[Agent Tool Executing] create_draft_reply(email_id={email_id})")
+        return draft_service.create_draft_reply(service, email_id, reply_body)
 
     def archive_email(email_id: str) -> dict:
         """
@@ -67,7 +64,7 @@ def run_agent_query(user_query: str) -> str:
         """
         Searches the user's emails using Gmail query syntax (e.g. 'from:person', 'subject:report', 'is:unread').
         """
-        print(f"[Agent Tool Executing] search_emails(query={query})")
+        print("[Agent Tool Executing] search_emails()")
         return gmail_service.search_emails(service, query)
 
     def delete_email(email_id: str) -> dict:
@@ -102,10 +99,9 @@ def run_agent_query(user_query: str) -> str:
         """
         Creates a standalone draft email (not a reply) to the specified recipient, subject, and body content.
         """
-        print(f"[Agent Tool Executing] create_draft(to={to}, subject={subject})")
-        return gmail_service.create_draft(service, to, subject, body)
+        print(f"[Agent Tool Executing] create_draft(to={to})")
+        return draft_service.create_draft(service, to, subject, body)
 
-    # Map tool names to actual callables
     tool_map = {
         "list_unread_emails": list_unread_emails,
         "get_email_details": get_email_details,
@@ -120,7 +116,7 @@ def run_agent_query(user_query: str) -> str:
     }
 
     # 2. Configure generate content configuration with the list of tools
-    config = types.GenerateContentConfig(
+    genai_config = types.GenerateContentConfig(
         tools=[
             list_unread_emails, 
             get_email_details, 
@@ -142,11 +138,26 @@ def run_agent_query(user_query: str) -> str:
         )
     )
 
+    db = SessionLocal()
     try:
-        # Create a new chat session to allow multi-turn tool interactions in a single request flow
+        # Load conversation history from database
+        db_messages = db.query(models.ChatMessage).filter(
+            models.ChatMessage.session_id == session_id
+        ).order_by(models.ChatMessage.timestamp.asc()).all()
+        
+        history = []
+        for msg in db_messages:
+            history.append(
+                types.Content(
+                    role=msg.role,
+                    parts=[types.Part.from_text(text=msg.content)]
+                )
+            )
+            
         chat = client.chats.create(
             model="gemini-2.5-flash",
-            config=config
+            config=genai_config,
+            history=history
         )
         
         response = chat.send_message(user_query)
@@ -160,7 +171,6 @@ def run_agent_query(user_query: str) -> str:
                 
                 if name in tool_map:
                     try:
-                        # Execute the tool function
                         result = tool_map[name](**args)
                         function_responses.append(
                             types.Part.from_function_response(
@@ -183,9 +193,16 @@ def run_agent_query(user_query: str) -> str:
                         )
                     )
             
-            # Send the tool outputs back to Gemini to determine the next step
             response = chat.send_message(function_responses)
             
+        # Save new user and agent turns to database
+        db.add(models.ChatMessage(session_id=session_id, role="user", content=user_query))
+        db.add(models.ChatMessage(session_id=session_id, role="model", content=response.text))
+        db.commit()
+        
         return response.text
     except Exception as e:
+        print("Agent query error occurred.")
         return f"Error running agent loop: {str(e)}"
+    finally:
+        db.close()
