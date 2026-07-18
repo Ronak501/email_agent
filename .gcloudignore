@@ -1,0 +1,17 @@
+# Ignore git and standard configs
+.gcloudignore
+.git
+.gitignore
+
+# Ignore environments
+.venv/
+venv/
+env/
+
+# Ignore python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Do NOT ignore credentials.json or token.json so they are uploaded to Cloud Build!

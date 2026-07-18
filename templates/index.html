@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Gmail Agent</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0d0e12;
+            --panel-bg: rgba(20, 21, 28, 0.6);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --accent-purple: #8b5cf6;
+            --accent-blue: #3b82f6;
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --chat-user-bg: #8b5cf6;
+            --chat-agent-bg: rgba(255, 255, 255, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 40%);
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(13, 14, 18, 0.8);
+            backdrop-filter: blur(12px);
+            z-index: 10;
+        }
+
+        header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            background: linear-gradient(to right, #a78bfa, #60a5fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-badge {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px #10b981;
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            padding: 24px;
+            gap: 24px;
+            height: calc(100vh - 73px);
+            overflow: hidden;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .left-panel {
+            flex: 1.2;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-header h2 {
+            font-size: 18px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .refresh-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 14px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s ease;
+        }
+
+        .refresh-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Chat Panel Styles */
+        .chat-messages {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 14px 18px;
+            border-radius: 18px;
+            font-size: 15px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .message.user {
+            background: var(--chat-user-bg);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 4px 14px rgba(139, 92, 246, 0.3);
+        }
+
+        .message.agent {
+            background: var(--chat-agent-bg);
+            color: var(--text-primary);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        .message.system {
+            align-self: center;
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            font-size: 13px;
+            border-radius: 12px;
+        }
+
+        .chat-input-area {
+            padding: 20px 24px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 12px;
+            background: rgba(13, 14, 18, 0.4);
+        }
+
+        .chat-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 14px 18px;
+            color: var(--text-primary);
+            font-size: 15px;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .chat-input:focus {
+            border-color: var(--accent-purple);
+            background: rgba(255, 255, 255, 0.05);
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+        }
+
+        .send-btn {
+            background: var(--accent-purple);
+            color: white;
+            border: none;
+            border-radius: 14px;
+            padding: 0 24px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 14px rgba(139, 92, 246, 0.3);
+        }
+
+        .send-btn:hover {
+            background: #7c3aed;
+            transform: translateY(-1px);
+        }
+
+        .send-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Inbox Feed Styles */
+        .inbox-feed {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .email-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 18px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .email-card:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .email-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .email-sender {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .email-date {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .email-subject {
+            font-size: 15px;
+            font-weight: 500;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+
+        .email-snippet {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+            margin-bottom: 12px;
+        }
+
+        .gemini-summary-box {
+            background: rgba(139, 92, 246, 0.08);
+            border-left: 3px solid var(--accent-purple);
+            padding: 10px 14px;
+            border-radius: 0 10px 10px 0;
+            font-size: 13px;
+            color: #c084fc;
+            line-height: 1.5;
+        }
+
+        .gemini-summary-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+            color: var(--accent-purple);
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            color: var(--text-secondary);
+            gap: 12px;
+        }
+
+        .empty-icon {
+            font-size: 40px;
+            opacity: 0.5;
+        }
+
+        /* Loading Indicator */
+        .typing-indicator {
+            display: flex;
+            gap: 5px;
+            padding: 4px 8px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Gmail Assistant</h1>
+        <div class="status-badge">
+            <span class="status-dot"></span>
+            Cloud Run Connected
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Left Panel: Chat -->
+        <div class="panel left-panel">
+            <div class="panel-header">
+                <h2>Conversational Gemini Agent</h2>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="message agent">
+                    Hello! I am your AI Email Assistant. You can ask me to do things like:
+                    <br><br>
+                    • <i>"Show my unread emails."</i><br>
+                    • <i>"Draft a polite reply to the last invite."</i><br>
+                    • <i>"Archive promotional emails."</i>
+                </div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" class="chat-input" id="chatInput" placeholder="Ask your agent..." onkeypress="handleKeyPress(event)">
+                <button class="send-btn" onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+
+        <!-- Right Panel: Inbox Dashboard -->
+        <div class="panel right-panel">
+            <div class="panel-header">
+                <h2>Live Inbox Feed</h2>
+                <button class="refresh-btn" onclick="fetchEmails()">Refresh</button>
+            </div>
+            <div class="inbox-feed" id="inboxFeed">
+                <div class="empty-state">
+                    <span class="empty-icon">✉️</span>
+                    <span>No emails loaded. Click refresh to pull live data.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const inboxFeed = document.getElementById('inboxFeed');
+
+        // Automatically fetch emails on page load
+        window.onload = () => {
+            fetchEmails();
+        };
+
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        async function fetchEmails() {
+            inboxFeed.innerHTML = `
+                <div class="empty-state">
+                    <div class="typing-indicator">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                    <span>Fetching live emails and summaries...</span>
+                </div>
+            `;
+            try {
+                const response = await fetch('/emails/unread');
+                if (!response.ok) throw new Error('API failed to respond');
+                const data = await response.json();
+                
+                if (data.length === 0) {
+                    inboxFeed.innerHTML = `
+                        <div class="empty-state">
+                            <span class="empty-icon">🎉</span>
+                            <span>All caught up! No unread emails.</span>
+                        </div>
+                    `;
+                    return;
+                }
+
+                inboxFeed.innerHTML = '';
+                data.forEach(email => {
+                    const card = document.createElement('div');
+                    card.className = 'email-card';
+                    card.innerHTML = `
+                        <div class="email-header">
+                            <span class="email-sender">${escapeHtml(email.sender)}</span>
+                            <span class="email-date">${escapeHtml(email.date)}</span>
+                        </div>
+                        <div class="email-subject">${escapeHtml(email.subject)}</div>
+                        <div class="email-snippet">${escapeHtml(email.snippet)}</div>
+                        ${email.summary ? `
+                            <div class="gemini-summary-box">
+                                <div class="gemini-summary-title">Gemini Summary</div>
+                                <div>${escapeHtml(email.summary)}</div>
+                            </div>
+                        ` : ''}
+                    `;
+                    inboxFeed.appendChild(card);
+                });
+            } catch (err) {
+                inboxFeed.innerHTML = `
+                    <div class="empty-state">
+                        <span class="empty-icon">⚠️</span>
+                        <span>Failed to fetch emails: ${err.message}</span>
+                    </div>
+                `;
+            }
+        }
+
+        async function sendMessage() {
+            const query = chatInput.value.trim();
+            if (!query) return;
+
+            // Render user message
+            appendMessage(query, 'user');
+            chatInput.value = '';
+
+            // Render agent loading message
+            const loadingMsg = appendMessage(`
+                <div class="typing-indicator">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            `, 'agent');
+
+            try {
+                const response = await fetch('/agent/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query })
+                });
+                
+                if (!response.ok) throw new Error('Server responded with an error');
+                const data = await response.json();
+                
+                // Replace loading message with actual response
+                loadingMsg.innerHTML = formatResponse(data.response);
+                
+                // Refresh email feed in case actions were executed
+                fetchEmails();
+            } catch (err) {
+                loadingMsg.innerHTML = `<span style="color: #ef4444">Error: ${err.message}</span>`;
+            }
+        }
+
+        function appendMessage(content, senderClass) {
+            const msg = document.createElement('div');
+            msg.className = `message ${senderClass}`;
+            msg.innerHTML = content;
+            chatMessages.appendChild(msg);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return msg;
+        }
+
+        function formatResponse(text) {
+            // Simple markdown-to-html line breaks and bold converter
+            return text
+                .replace(/\n/g, '<br>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<i>$1</i>');
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>

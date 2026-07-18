@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import List, Optional
 import gmail_service
@@ -9,6 +10,19 @@ app = FastAPI(
     description="A FastAPI service integrated with Gmail API and Gemini summaries.",
     version="2.0.0"
 )
+
+@app.get("/", response_class=HTMLResponse, summary="Serve the agent frontend interface")
+def serve_frontend():
+    """
+    Serve the premium single-page web app for the Gmail Agent.
+    """
+    import os
+    template_path = os.path.join("templates", "index.html")
+    if os.path.exists(template_path):
+        with open(template_path, "r", encoding="utf-8") as f:
+            return f.read()
+    return HTMLResponse("<h1>Templates folder or index.html not found!</h1>", status_code=404)
+
 
 # Shared schemas for Gmail endpoints
 class EmailSummaryResponse(BaseModel):
