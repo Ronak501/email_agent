@@ -1,0 +1,25 @@
+# Ignore python files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore environments
+.venv/
+venv/
+env/
+
+# Ignore databases and secrets
+*.db
+*.db-journal
+credentials.json
+token.json
+.env
+
+# Ignore git
+.git
+.gitignore
+
+# Ignore docker files
+Dockerfile
+.dockerignore
